@@ -1,0 +1,26 @@
+@startuml
+participant FED as FED
+participant inventoryReadLambda as readLambda
+database inventoryDb as inventoryDB
+participant priceEngineService as PES
+participant sneaksAPI as sneaksAPI
+database itemDB as itemDB
+
+FED -> readLambda: get all inventory from userId
+readLambda -> inventoryDB: get all inventory from the userId
+readLambda <-- inventoryDB: return the inventoryValue
+FED <-- readLambda: return all inventory
+
+FED -> PES: get the current price of the item
+PES -> itemDB: get the value from the sneakers API
+group if itemDB doesn't exist
+PES -> sneaksAPI: fetch value
+PES <-- sneaksAPI: return the corresponding price
+PES -> itemDB: write the value to itemDB
+PES <-- itemDB: return write successful
+end
+
+FED <-- PES: return the price on the corresponding item
+
+FED -> FED: preprocess the net profit and potential profit for the corresponding item
+@enduml

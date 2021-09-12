@@ -1,0 +1,21 @@
+@startuml
+participant FED as FED
+participant priceEngineService as PES
+participant sneaksAPI as sneaksAPI
+database itemDB as itemDB
+participant inventoryWriteLambda as writeLambda
+database inventoryDb as inventoryDB
+
+FED -> PES: get the sneakers brand name and price to prompt for entering the inventory amount
+PES -> sneaksAPI: get sneakers API
+PES <-- sneaksAPI: return the sneakers API
+PES -> itemDB: write the sneakers API 
+PES <-- itemDB: return itemId
+FED <-- PES:  returning the value and also the itemId
+
+FED -> FED: present user and let user enter the amount for their inventory
+FED -> writeLambda: call the inventoryWriteLambda for writing the inventory
+writeLambda -> inventoryDB: write the inventory value associate with the userId and itemId
+writeLambda <-- inventoryDB: return successful
+FED <- writeLambda: return 201 created
+@enduml
