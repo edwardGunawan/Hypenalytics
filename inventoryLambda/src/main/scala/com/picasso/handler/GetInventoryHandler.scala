@@ -9,7 +9,7 @@ import java.io.{InputStream, OutputStream}
 import io.circe.parser._
 import io.circe.syntax._
 import cats.implicits._
-import com.picasso.db.{InventoryDB, InventoryDBImpl}
+import com.picasso.db.{Repository, InventoryDB}
 import com.picasso.domain.AppError
 import com.picasso.domain.inventory.{GetInventoryResponse, Pagination}
 import com.picasso.domain.lambda.{LambdaRequestWithBody, LambdaRequestWithoutBody, LambdaResponse}
@@ -47,7 +47,7 @@ class GetInventoryHandler extends RequestStreamHandler {
   }
 }
 
-case class GetInventoryFlow[F[_]: Sync](inventoryDB: InventoryDB[F], tableName: String) {
+case class GetInventoryFlow[F[_]: Sync](inventoryDB: Repository[F, InventoryModel], tableName: String) {
   private val S = effect.Sync[F]
 
   def run(inputString: String): F[GetInventoryResponse] =
@@ -72,9 +72,9 @@ case class GetInventoryFlow[F[_]: Sync](inventoryDB: InventoryDB[F], tableName: 
 
   def getInventory(pathParameters: PathParameters): F[List[InventoryModel]] =
     inventoryDB
-      .listInventoryItems(
+      .listItems(
         tableName = tableName,
-        userId = pathParameters.userId,
+        pk = pathParameters.userId,
         sortKeyQuery = BeginsWith(s"${pathParameters.inventoryId}"),
         filter = Expression.empty
       )
@@ -126,7 +126,7 @@ object GetInventoryHandler {
   def resource(config: Config): Resource[IO, GetInventoryFlow[IO]] =
     for {
       ddbClient <- Resource.fromAutoCloseable[IO, DynamoDbAsyncClient](IO.delay(DynamoDbAsyncClient.builder.build))
-      inventoryDB = InventoryDBImpl[IO](ddbClient)
+      inventoryDB = InventoryDB[IO](ddbClient)
       getInventoryFlow = GetInventoryFlow[IO](inventoryDB, tableName = config.tableName)
     } yield getInventoryFlow
 

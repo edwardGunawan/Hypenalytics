@@ -15,12 +15,6 @@ object InventorySchema {
     }
   }
 
-  lazy val platformSchema: Schema[Platform] = Schema[String].imapErr { s =>
-    Platform.parse(s).toRight(Schema.ReadError(s"$s is not valid Platform"))
-  }(_.toString)
-
-  lazy val schemaInstant: Schema[Instant] = Schema[String].imap(s => Instant.parse(s))(_.toString)
-
   lazy val listingSchema: Schema[Listing] = Schema.record[Listing] { field =>
     (
       field("PK", _.userId),
@@ -52,7 +46,7 @@ object InventorySchema {
     (
       field("PK", _.userId),
       field("SK", _.inventoryId),
-      field("itemId", _.itemId),
+      field("itemId", _.itemName),
       field("priceBuy", _.priceBuy),
       field.opt("priceSold", _.priceSold),
       field("category", _.category),
@@ -70,7 +64,7 @@ object InventorySchema {
         Metadata(
           userId = userId,
           inventoryId = inventoryId,
-          itemId = itemId,
+          itemName = itemId,
           priceBuy = priceBuy,
           priceSold = priceSold,
           lastUpdated = lastUpdated,

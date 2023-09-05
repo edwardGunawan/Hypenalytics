@@ -6,7 +6,7 @@ import cats.effect.IO
 import cats.effect.kernel.{Async, Resource, Sync}
 import com.amazonaws.services.lambda.runtime.{Context, RequestStreamHandler}
 import com.picasso.config.Config
-import com.picasso.db.{InventoryDB, InventoryDBImpl}
+import com.picasso.db.{Repository, InventoryDB}
 import com.picasso.domain.inventory.{GetInventoryResponse, UpdateInventoryRequest, UpdateListing}
 import com.picasso.model.InventoryModel
 import io.circe.generic.JsonCodec
@@ -46,7 +46,7 @@ class UpdateInventoryHandler extends RequestStreamHandler {
   }
 }
 
-case class UpdateInventoryFlow[F[_]: Sync: Parallel](inventoryDB: InventoryDB[F], tableName: String) {
+case class UpdateInventoryFlow[F[_]: Sync: Parallel](inventoryDB: Repository[F, InventoryModel], tableName: String) {
   private val S = Sync[F]
 
   def run(inputString: String): F[Unit] =
@@ -120,10 +120,10 @@ case class UpdateInventoryFlow[F[_]: Sync: Parallel](inventoryDB: InventoryDB[F]
 
     println(s"combinedExpression ${combinedExpression}")
     OptionT(
-      inventoryDB.updateInventoryItem(
+      inventoryDB.updateItem(
         tableName = tableName,
         sk = inventoryId,
-        userId = userId,
+        pk = userId,
         expression = combinedExpression.copy(
           expression = s"SET ${combinedExpression.expression}"
         )
@@ -147,10 +147,10 @@ case class UpdateInventoryFlow[F[_]: Sync: Parallel](inventoryDB: InventoryDB[F]
               attributeNames = Map("#lstOfPrice" -> "lstOfPrice", "#size" -> size),
               attributeValues = Map(":lstPriceVal" -> priceAsk.asAttributeValue)
             )
-            inventoryDB.updateInventoryItem(
+            inventoryDB.updateItem(
               tableName = tableName,
               sk = s"$inventoryId#${updateListing.platform}",
-              userId = userId,
+              pk = userId,
               expression = exp
             )
         }
@@ -177,7 +177,7 @@ object UpdateInventoryHandler {
         }
       }
       .map { ddbClient =>
-        val inventoryDB = InventoryDBImpl[F](ddbClient)
+        val inventoryDB = InventoryDB[F](ddbClient)
         UpdateInventoryFlow[F](inventoryDB, config.tableName)
       }
 

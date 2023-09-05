@@ -44,12 +44,40 @@ lazy val core = (project in file("core")).settings(
     Circe.parser,
     Circe.config,
     Dynosaur.core,
-    Meteor.core
+    Meteor.core,
+    HTTP4s.client
   ) ++ Seq(
     scalaTest,
     ScalaMock.core
   ).map(_ % "test")
 )
+
+lazy val priceEngineLambda = (project in file("priceEngineLambda"))
+  .dependsOn(core)
+  .settings(
+    name := "PriceEngineLambda",
+    version := "0.1.0-SNAPSHOT",
+    commonSettings,
+    assemblySettings,
+    libraryDependencies ++= Seq(
+      AWS.core,
+      AWS.sts,
+      AWSLambdaRuntime.core,
+      AWSLambdaRuntime.event,
+      Cats.core,
+      CatsEffect.core,
+      Circe.core,
+      Circe.generic,
+      Circe.genericExtra,
+      Circe.parser,
+      Circe.config,
+      Ciris.core,
+      Ciris.refined
+    ) ++ Seq(
+      ScalaMock.core,
+      scalaTest
+    ).map(_ % "test")
+  )
 
 lazy val inventoryLambda = (project in file("inventoryLambda"))
   .dependsOn(core)

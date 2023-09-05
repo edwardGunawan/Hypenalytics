@@ -70,7 +70,7 @@ object InventoryModel {
   case class Metadata(
     userId: String,
     inventoryId: String,
-    itemId: String,
+    itemName: String,
     priceBuy: String,
     priceSold: Option[String],
     lastUpdated: Instant,

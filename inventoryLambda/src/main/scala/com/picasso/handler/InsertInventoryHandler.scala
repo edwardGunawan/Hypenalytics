@@ -2,7 +2,7 @@ package com.picasso.handler
 
 import cats.effect.kernel.{Resource, Sync}
 import com.amazonaws.services.lambda.runtime.{Context, RequestStreamHandler}
-import com.picasso.db.{InventoryDB, InventoryDBImpl}
+import com.picasso.db.{Repository, InventoryDB}
 import com.picasso.domain.inventory.{InsertInventoryRequest, InsertInventoryResponse}
 import io.circe.generic.JsonCodec
 import com.picasso.domain.AppError
@@ -44,7 +44,7 @@ class InsertInventoryHandler extends RequestStreamHandler {
   }
 }
 
-case class InsertInventoryFlow[F[_]: Sync](inventoryDB: InventoryDB[F], tableName: String) {
+case class InsertInventoryFlow[F[_]: Sync](inventoryDB: Repository[F, InventoryModel], tableName: String) {
   private val S = Sync[F]
 
   def run(inputString: String): F[InsertInventoryResponse] =
@@ -77,7 +77,7 @@ case class InsertInventoryFlow[F[_]: Sync](inventoryDB: InventoryDB[F], tableNam
 
   def insertDB(inventoriesModel: List[InventoryModel]): F[Unit] =
     inventoriesModel.traverse { inventoryModel =>
-      inventoryDB.insertInventoryItem(tableName = tableName, inventoryModel = inventoryModel)
+      inventoryDB.insertItem(tableName = tableName, model = inventoryModel)
     } *> S.unit
 
   def transform(
@@ -100,7 +100,7 @@ case class InsertInventoryFlow[F[_]: Sync](inventoryDB: InventoryDB[F], tableNam
     val metadata = Metadata(
       userId = pathParameters.userId,
       inventoryId = inventoryId,
-      itemId = insertInventoryRequest.itemId,
+      itemName = insertInventoryRequest.itemId,
       priceBuy = insertInventoryRequest.priceBuy,
       priceSold = insertInventoryRequest.priceSold,
       lastUpdated = now,
@@ -122,7 +122,7 @@ object InsertInventoryHandler {
         }
       }
       .map { ddbClient =>
-        val inventoryDB = InventoryDBImpl[F](dynamoDbAsyncClient = ddbClient)
+        val inventoryDB = InventoryDB[F](dynamoDbAsyncClient = ddbClient)
         InsertInventoryFlow[F](inventoryDB = inventoryDB, tableName = config.tableName)
       }
 

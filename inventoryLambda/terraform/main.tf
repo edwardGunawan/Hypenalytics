@@ -21,15 +21,15 @@ provider "aws" {
 data "archive_file" "lambdaFunctionJar" {
   type = "zip"
 
-  source_dir = "${path.module}/inventoryLambda"
-  output_path = "${path.module}/inventoryLambda.zip"
+  source_dir = "../"
+  output_path = "../inventoryLambda.zip"
 
 }
 
 resource "aws_dynamodb_table" "inventoryTable" {
-  lifecycle {
-    prevent_destroy = true # To prevent deleting when doing terraform destroy More info: https://www.terraform.io/docs/language/meta-arguments/lifecycle.html
-  }
+//  lifecycle {
+//    prevent_destroy = true # To prevent deleting when doing terraform destroy More info: https://www.terraform.io/docs/language/meta-arguments/lifecycle.html
+//  }
   name = "picasso-hypenalytics-inventory-table-${var.env}"
   billing_mode = "PROVISIONED"
   read_capacity = 20
@@ -63,9 +63,9 @@ resource "aws_s3_bucket" "lambda_bucket" {
 resource "aws_s3_bucket_object" "s3_object" {
   bucket = aws_s3_bucket.lambda_bucket.id
   key = "hypenalytics/InventoryLambda.jar"
-  source = "${path.module}/inventoryLambda/target/scala-2.13/InventoryLambda.jar"
+  source = "../target/scala-2.13/InventoryLambda.jar"
 
-  etag = filemd5("${path.module}/inventoryLambda/target/scala-2.13/InventoryLambda.jar")
+  etag = filemd5("../target/scala-2.13/InventoryLambda.jar")
 
 }
 

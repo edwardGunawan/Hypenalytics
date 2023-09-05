@@ -1,7 +1,7 @@
 package com.picasso
 
 import cats.effect.{ExitCode, IO, IOApp}
-import com.picasso.db.InventoryDBImpl
+import com.picasso.db.InventoryDB
 import com.picasso.model.InventoryModel.{Listing, Metadata, PriceAsk}
 import com.picasso.model.InventoryModel.{Listing, Metadata}
 import com.picasso.model.Platform.GOAT
@@ -16,15 +16,16 @@ import meteor.syntax._
 
 object Main extends IOApp {
 
-  def genMetadata: Metadata = Metadata(
-    inventoryId = UUID.randomUUID().toString,
-    userId = "1",
-    itemId = UUID.randomUUID().toString,
-    priceBuy = "12",
-    priceSold = None,
-    lastUpdated = Instant.now,
-    category = "shoes"
-  )
+  def genMetadata: Metadata =
+    Metadata(
+      userId = "1",
+      inventoryId = UUID.randomUUID().toString,
+      itemName = UUID.randomUUID().toString,
+      priceBuy = "12",
+      priceSold = None,
+      lastUpdated = Instant.now,
+      category = "shoes"
+    )
 
   def genListings(inventoryId: String, userId: String): Listing =
     Listing(
@@ -44,11 +45,11 @@ object Main extends IOApp {
       metadatas <- IO((0 to 4).toList.map(_ => genMetadata))
       listings <- IO(metadatas.map(metadata => genListings(metadata.inventoryId, metadata.userId)))
 
-      inventoryDB = InventoryDBImpl[IO](dynamoDbAsyncClient)
+      inventoryDB = InventoryDB[IO](dynamoDbAsyncClient)
 
       _ <- IO(println("Inserting metadatas"))
       _ <- metadatas.traverse(
-        metadata => inventoryDB.insertInventoryItem(tableName = tableName, inventoryModel = metadata)
+        metadata => inventoryDB.insertItem(tableName = tableName, inventoryModel = metadata)
       )
       randomInventoryId = metadatas.head.inventoryId
       randomUserId = metadatas.head.userId
@@ -57,14 +58,14 @@ object Main extends IOApp {
 
       _ <- IO(println("Checking if metadatas can be retrieved from DDB"))
 
-      inventoryModel <- inventoryDB.getInventoryItem(tableName = tableName, sk = randomInventoryId, pk = randomUserId)
+      inventoryModel <- inventoryDB.getItem(tableName = tableName, sk = randomInventoryId, pk = randomUserId)
 
       _ <- IO(println(s"inventoryModel: $inventoryModel"))
 
       _ <- IO(println("inserting listings"))
 
       _ <- listings.traverse(
-        listing => inventoryDB.insertInventoryItem(tableName = tableName, inventoryModel = listing)
+        listing => inventoryDB.insertItem(tableName = tableName, inventoryModel = listing)
       )
 
       _ <- IO(println("Finish inserting listings ..."))

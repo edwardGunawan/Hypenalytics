@@ -1,45 +1,23 @@
 package com.picasso.db
 
-import cats.effect.Sync
-import cats.effect.kernel.{Async, Resource}
+import cats.effect.kernel.Async
 import com.picasso.model.InventoryModel
 import meteor.{DynamoDbType, Expression, KeyDef, Query, SortKeyQuery}
-import meteor.api.hi.{CompositeTable, SecondaryCompositeIndex, SecondarySimpleIndex, SimpleTable}
+import meteor.api.hi.CompositeTable
 import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient
-import meteor.syntax._
 import software.amazon.awssdk.services.dynamodb.model.ReturnValue
 
 import java.time.Instant
 import cats.implicits._
+import meteor.syntax._
 
-trait InventoryDB[F[_]] {
-  def getInventoryItem(tableName: String, sk: String, pk: String): F[Option[InventoryModel]]
+case class InventoryDB[F[_]: Async](dynamoDbAsyncClient: DynamoDbAsyncClient) extends Repository[F, InventoryModel] {
 
-  def insertInventoryItem(
-    tableName: String,
-    inventoryModel: InventoryModel
-  ): F[Unit]
-
-  def listInventoryItems(
-    tableName: String,
-    userId: String,
-    sortKeyQuery: SortKeyQuery[String],
-    filter: Expression
-  ): fs2.Stream[F, InventoryModel]
-
-  def updateInventoryItem(
+  override def getItem(
     tableName: String,
     sk: String,
-    userId: String,
-    expression: Expression
-  ): F[Option[InventoryModel]]
-
-  def deleteInventoryItem(tableName: String, pk: String, sk: String): F[Unit]
-}
-
-case class InventoryDBImpl[F[_]: Async](dynamoDbAsyncClient: DynamoDbAsyncClient) extends InventoryDB[F] {
-
-  override def getInventoryItem(tableName: String, sk: String, pk: String): F[Option[InventoryModel]] = {
+    pk: String
+  ): F[Option[InventoryModel]] = {
     val tableSrc = CompositeTable[F, String, String](
       tableName = tableName,
       partitionKeyDef = KeyDef[String](attributeName = "PK", DynamoDbType.S),
@@ -51,7 +29,7 @@ case class InventoryDBImpl[F[_]: Async](dynamoDbAsyncClient: DynamoDbAsyncClient
 
   }
 
-  override def insertInventoryItem(
+  override def insertItem(
     tableName: String,
     inventoryModel: InventoryModel
   ): F[Unit] = {
@@ -65,9 +43,9 @@ case class InventoryDBImpl[F[_]: Async](dynamoDbAsyncClient: DynamoDbAsyncClient
     tableSrc.put[InventoryModel](inventoryModel)
   }
 
-  override def listInventoryItems(
+  override def listItems(
     tableName: String,
-    userId: String,
+    pk: String,
     sortKeyQuery: SortKeyQuery[String],
     filter: Expression
   ): fs2.Stream[F, InventoryModel] = {
@@ -78,17 +56,17 @@ case class InventoryDBImpl[F[_]: Async](dynamoDbAsyncClient: DynamoDbAsyncClient
       sortKeyDef = KeyDef(attributeName = "SK", DynamoDbType.S)
     )
 
-    val query = Query[String, String](partitionKey = userId, sortKeyQuery = sortKeyQuery, filter = filter)
+    val query = Query[String, String](partitionKey = pk, sortKeyQuery = sortKeyQuery, filter = filter)
 
     tableSrc
       .retrieve[InventoryModel](query = query, consistentRead = true, limit = Integer.MAX_VALUE) // for now, when items gets really big, we figure how to do real ddb pagination
 
   }
 
-  override def updateInventoryItem(
+  override def updateItem(
     tableName: String,
     sk: String,
-    userId: String,
+    pk: String,
     expression: Expression
   ): F[Option[InventoryModel]] = {
     val tblSrc = CompositeTable[F, String, String](
@@ -99,7 +77,7 @@ case class InventoryDBImpl[F[_]: Async](dynamoDbAsyncClient: DynamoDbAsyncClient
     )
 
     tblSrc.update[InventoryModel](
-      partitionKey = userId,
+      partitionKey = pk,
       sortKey = sk,
       update = expression.copy(
         expression = expression.expression + ", " + "#lastUpdated = :lastUpdatedVal",
@@ -111,7 +89,7 @@ case class InventoryDBImpl[F[_]: Async](dynamoDbAsyncClient: DynamoDbAsyncClient
     )
   }
 
-  override def deleteInventoryItem(tableName: String, pk: String, sk: String): F[Unit] = {
+  override def deleteItem(tableName: String, pk: String, sk: String): F[Unit] = {
     val tblSrc = CompositeTable[F, String, String](
       tableName = tableName,
       partitionKeyDef = KeyDef(attributeName = "PK", DynamoDbType.S),

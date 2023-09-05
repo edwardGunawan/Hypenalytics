@@ -12,12 +12,12 @@ import io.circe.syntax._
 import cats.implicits._
 import cats.effect.unsafe.implicits._
 import com.picasso.config.Config
-import com.picasso.db.{InventoryDB, InventoryDBImpl}
+import com.picasso.db.{InventoryDB, Repository}
 import com.picasso.domain.AppError
 import com.picasso.domain.lambda.LambdaResponse
 import com.picasso.handler.DeleteInventoryHandler.LambdaRequest
 import com.picasso.model.InventoryModel.{Listing, Metadata}
-import com.picasso.model.Platform
+import com.picasso.model.{InventoryModel, Platform}
 import io.circe.syntax.EncoderOps
 import meteor.Expression
 import meteor.SortKeyQuery.BeginsWith
@@ -45,7 +45,7 @@ class DeleteInventoryHandler extends RequestStreamHandler {
   }
 }
 
-case class DeleteInventoryFlow[F[_]: Sync: Parallel](inventoryDB: InventoryDB[F], tableName: String) {
+case class DeleteInventoryFlow[F[_]: Sync: Parallel](inventoryDB: Repository[F, InventoryModel], tableName: String) {
   private val S = Sync[F]
 
   def run(inputString: String): F[Unit] =
@@ -66,9 +66,9 @@ case class DeleteInventoryFlow[F[_]: Sync: Parallel](inventoryDB: InventoryDB[F]
     // list all the inventory if the platform doesn't exist, and then delete all of them
     val ifPlatformNotExist = for {
       inventories <- inventoryDB
-        .listInventoryItems(
+        .listItems(
           tableName = tableName,
-          userId = userId,
+          pk = userId,
           sortKeyQuery = BeginsWith(s"$inventoryId#"),
           filter = Expression.empty
         )
@@ -76,14 +76,14 @@ case class DeleteInventoryFlow[F[_]: Sync: Parallel](inventoryDB: InventoryDB[F]
         .toList
       _ <- inventories.parTraverse {
         case Metadata(userId, inventoryId, itemId, priceBuy, priceSold, lastUpdated, category) =>
-          inventoryDB.deleteInventoryItem(tableName = tableName, pk = userId, sk = inventoryId)
+          inventoryDB.deleteItem(tableName = tableName, pk = userId, sk = inventoryId)
         case Listing(userId, inventoryId, platform, lstOfPriceAsk, lastUpdated) =>
-          inventoryDB.deleteInventoryItem(tableName = tableName, pk = userId, sk = s"$inventoryId#$platform")
+          inventoryDB.deleteItem(tableName = tableName, pk = userId, sk = s"$inventoryId#$platform")
       }
     } yield ()
 
     platformMaybe.fold(ifPlatformNotExist)(
-      s => inventoryDB.deleteInventoryItem(tableName = tableName, pk = userId, sk = s"$inventoryId#$s")
+      s => inventoryDB.deleteItem(tableName = tableName, pk = userId, sk = s"$inventoryId#$s")
     )
   }
 
@@ -97,7 +97,7 @@ object DeleteInventoryHandler {
         DynamoDbAsyncClient.builder().build()
       })
       .map { ddbClient =>
-        val inventoryDB = InventoryDBImpl[F](ddbClient)
+        val inventoryDB = InventoryDB[F](ddbClient)
         DeleteInventoryFlow[F](inventoryDB = inventoryDB, tableName = config.tableName)
       }
 

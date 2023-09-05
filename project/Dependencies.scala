@@ -46,6 +46,11 @@ object Dependencies {
     val event: ModuleID = "com.amazonaws" % "aws-lambda-java-events" % "3.8.0"
   }
 
+  object HTTP4s {
+    private val version = "1.0.0-M25"
+    val client: ModuleID = "org.http4s" %% "http4s-blaze-client" % version
+  }
+
   object ScalaMock {
     private val version = "5.1.0"
     val core = "org.scalamock" %% "scalamock" % version

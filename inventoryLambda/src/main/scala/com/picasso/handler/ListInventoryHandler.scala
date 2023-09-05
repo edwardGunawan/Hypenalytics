@@ -3,7 +3,7 @@ package com.picasso.handler
 import cats.effect.IO
 import cats.effect.kernel.{Async, Resource, Sync}
 import com.amazonaws.services.lambda.runtime.{Context, RequestStreamHandler}
-import com.picasso.db.{InventoryDB, InventoryDBImpl}
+import com.picasso.db.{Repository, InventoryDB}
 import com.picasso.domain.inventory.{Inventory, ListInventoryResponse, Pagination}
 import com.picasso.handler.ListInventoryHandler.{LambdaRequest, QueryStringParameters}
 import io.circe.generic.JsonCodec
@@ -45,7 +45,7 @@ class ListInventoryHandler extends RequestStreamHandler {
   }
 }
 
-case class ListInventory[F[_]: Sync](inventoryDB: InventoryDB[F], tableName: String) extends Codec {
+case class ListInventory[F[_]: Sync](inventoryDB: Repository[F, InventoryModel], tableName: String) extends Codec {
   private val S = Sync[F]
 
   type InventoryId = String
@@ -96,12 +96,7 @@ case class ListInventory[F[_]: Sync](inventoryDB: InventoryDB[F], tableName: Str
     userId: String
   ): F[List[(InventoryId, List[InventoryModel])]] = {
     val stream = inventoryDB
-      .listInventoryItems(
-        tableName = tableName,
-        userId = userId,
-        sortKeyQuery = Empty[String],
-        filter = Expression.empty
-      )
+      .listItems(tableName = tableName, pk = userId, sortKeyQuery = Empty[String], filter = Expression.empty)
 
     stream
       .groupAdjacentBy { _.inventoryId }
@@ -158,7 +153,7 @@ case class ListInventory[F[_]: Sync](inventoryDB: InventoryDB[F], tableName: Str
                 priceBuy = metadataType.priceBuy,
                 priceSold = metadataType.priceSold,
                 lastUpdated = metadataType.lastUpdated,
-                itemId = metadataType.itemId,
+                itemId = metadataType.itemName,
                 platform = i.platform,
                 priceAsks = i.lstOfPriceAsk
               )
@@ -191,7 +186,7 @@ object ListInventoryHandler {
         )
       )
       .map { ddbClient =>
-        val inventoryDB = InventoryDBImpl[F](ddbClient)
+        val inventoryDB = InventoryDB[F](ddbClient)
         ListInventory(inventoryDB, tableName = config.tableName)
       }
 

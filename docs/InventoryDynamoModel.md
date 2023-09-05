@@ -1,4 +1,4 @@
-# Dynamo DB Data Model
+# Inventory Dynamo DB Data Model
 
 ## Table Name
 picasso-hypenalytics-inventory-{env}

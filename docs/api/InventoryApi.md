@@ -91,7 +91,6 @@ Update an item in the inventoryDB associated with the userId and inventoryID
 ### Delete an Inventory Item
 ```
 DELETE /{{version}}/users/{{usersId}}/inventories/{{inventoryId}}[Optional: /platform/{{platform}}]
-
 ```
 
 #### Responses
